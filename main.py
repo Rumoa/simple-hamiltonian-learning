@@ -52,14 +52,25 @@ def evol_state(H, v, t):
 
 # evol_vector = np.vectorize(evol_vector)
 
-alpha = 1
+alpha = np.linspace(0, 1 , 10)
 v = np.array([1, 0]).reshape(-1, 1)
-t = np.linspace(0, 10, 50)
+t = np.linspace(0, 10, 100)
 t_0 = 0
 t_f = 0.4
 
-evolved_arr = evol_state(H_matrix(alpha), v, t)
+evolution = np.zeros((len(alpha), len(t), 2, 1), dtype = 'complex_')
+for i, alpha_i in enumerate(alpha):
+    evolution[i, :, :, :] = evol_state(H_matrix(alpha_i), v, t)
 
-prob_0 = np.squeeze(np.array([np.conjugate(v.T)@i for i in evolved_arr[:, :, :]]))
-plt.plot(t, np.real(prob_0))
+
+# prob_0 = np.squeeze(np.array([np.conjugate(v.T)@i for i in evolved_arr[:, :, :]]))
+prob_0 = np.power(np.abs(np.squeeze(np.array([np.conjugate(v.T)@i for i in evolution]))), 2)
+# plt.plot(t, np.real(prob_0[1, :]))
+
+
+for i in range(len(alpha)):  
+    plt.plot(t, np.real(prob_0[i, :]),label='l')
+    plt.legend(str(alpha[i]))    
 plt.show()
+
+print("hello")
