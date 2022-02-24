@@ -18,7 +18,7 @@ hbar = 1
 
 
 def H_matrix(alpha):
-    return alpha*X
+    return alpha*Z
 
 
 def H(v, alpha):
@@ -49,22 +49,25 @@ def evol_state(H, v, t):
       
 
 
-
+no_parameters = 10
+prior = np.ones(no_parameters)
+weights = np.ones(no_parameters)
 # evol_vector = np.vectorize(evol_vector)
 
-alpha = np.linspace(0, 1 , 10)
-v = np.array([1, 0]).reshape(-1, 1)
+alpha = np.linspace(0, 1 , no_parameters)
+v = np.array([0, 1]).reshape(-1, 1)
+measure_qubits = np.array([1, 0]).reshape(-1, 1)
 t = np.linspace(0, 10, 100)
 t_0 = 0
 t_f = 0.4
 
 evolution = np.zeros((len(alpha), len(t), 2, 1), dtype = 'complex_')
-for i, alpha_i in enumerate(alpha):
+for i, alpha_i in enumerate(alpha): #the first component is each alpha of the hamiltonian
     evolution[i, :, :, :] = evol_state(H_matrix(alpha_i), v, t)
 
 
 # prob_0 = np.squeeze(np.array([np.conjugate(v.T)@i for i in evolved_arr[:, :, :]]))
-prob_0 = np.power(np.abs(np.squeeze(np.array([np.conjugate(v.T)@i for i in evolution]))), 2)
+prob_0 = np.power(np.abs(np.squeeze(np.array([np.conjugate(measure_qubits.T)@i for i in evolution]))), 2)
 # plt.plot(t, np.real(prob_0[1, :]))
 
 
