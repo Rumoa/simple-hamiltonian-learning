@@ -54,9 +54,12 @@ def prob(omega, t, d):
     return np.power(np.sin((omega*t/2)), 2*(1-d))*np.power(np.cos((omega*t/2)), 2*(d))
 
 
-def sample_results(n, omega)    
-    results = np.random.choice([0.0, 1.0], p=[prob(omega, np.random.uniform(t_0, t_f), 0), 1 - prob(omega, np.random.uniform(t_0, t_f), 0)],
-                               size=n)
+def sample_results(n, omega):
+    results = []
+    for _ in range(n):
+        t = np.random.uniform(t_0, t_f)
+        p1 = prob(omega, t, 0)
+        results.append(np.random.choice([0.0, 1.0], p=[p1, 1 - p1]))
     return results
 
 
@@ -84,9 +87,10 @@ prob_0 = np.power(np.abs(np.squeeze(
 # plt.plot(t, np.real(prob_0[1, :]))
 
 
-for i in range(len(alpha)):
-    plt.plot(t, np.real(prob_0[i, :]), label='l')
-    plt.legend(str(alpha[i]))
-plt.show()
+# for i in range(len(alpha)):
+#     plt.plot(t, np.real(prob_0[i, :]), label='l')
+#     plt.legend(str(alpha[i]))
+# plt.show()
+sample = sample_results(50000, 0.8)
 
 print("hello")
