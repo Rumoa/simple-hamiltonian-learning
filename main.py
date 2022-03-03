@@ -20,7 +20,7 @@ hbar = 1
 
 
 def H_matrix(alpha):
-    return alpha*X
+    return alpha/2*X
 
 
 def H(v, alpha):
@@ -51,15 +51,17 @@ def evol_state(H, v, t):
 
 
 def prob(omega, t, d):
-    return np.power(np.sin((omega*t/2)), 2*(1-d))*np.power(np.cos((omega*t/2)), 2*(d))
+    return np.power(np.sin((omega*t/2)), 2*(d))*np.power(np.cos((omega*t/2)), 2*(1-d))
 
+# def prob_0(omega, t):
+#     return np.power(np.cos(t*omega/2),2)
 
 def sample_results(n, omega):
     results = []
     for _ in range(n):
         t = np.random.uniform(t_0, t_f)
-        p1 = prob(omega, t, 0)
-        results.append(np.random.choice([0.0, 1.0], p=[p1, 1 - p1]))
+        p0 = prob(omega, t, 0)
+        results.append(np.random.choice([0.0, 1.0], p=[p0, 1 - p0]))
     return results
 
 
@@ -69,7 +71,7 @@ weights = np.ones(no_parameters)
 # evol_vector = np.vectorize(evol_vector)
 
 alpha = np.linspace(0, 1, no_parameters)
-v = np.array([0, 1]).reshape(-1, 1)
+v = np.array([1, 0]).reshape(-1, 1)/np.sqrt(1)
 measure_qubits = np.array([1, 0]).reshape(-1, 1)
 t = np.linspace(0, 10, 100)
 t_0 = 0.0
@@ -86,37 +88,48 @@ for i, alpha_i in enumerate(alpha):
 prob_0 = np.power(np.abs(np.squeeze(
     np.array([np.conjugate(measure_qubits.T)@i for i in evolution]))), 2)
 # plt.plot(t, np.real(prob_0[1, :]))
+# plt.show()
 
 
 # for i in range(len(alpha)):
 #     plt.plot(t, np.real(prob_0[i, :]), label='l')
 #     plt.legend(str(alpha[i]))
 # plt.show()
-samples = sample_results(50000, 0.8)
-
+# # samples = sample_results(50000, 0.8)
+# print("hello")
+#aqui aqui
 alpha = [0, 1]
 np.random.seed(1)
 
-no_parameters = 2
-no_samples = 100
+no_parameters = 50
+no_samples = 50000
 alpha = np.linspace(0, 1, no_parameters)
 samples = sample_results(no_samples, 0.8)
 probs = []
-
+alpha = [0.0, 0.8, 1]
+no_parameters=3
 for i, alpha_i in enumerate(alpha):
     prob_parameters = []
     for i_sample, sample in enumerate(samples):
-        t = 1/np.abs((np.random.choice(alpha)-np.random.choice(alpha)))
+        t = 1/np.sqrt(np.power(np.random.choice(alpha)-np.random.choice(alpha), 2))
         while math.isinf(t):
-            t = 1/np.abs((np.random.choice(alpha)-np.random.choice(alpha)))
+            print("ojo")
+            t = 1/np.sqrt(np.power(np.random.choice(alpha)-np.random.choice(alpha), 2))
+        # print(t)
         evo = evol_state(H_matrix(alpha_i), v, t)
-        prob_0 = np.power(np.abs(np.conjugate(measure_qubits.T)@evo), 2).ravel()
+        prob_0 = np.power(
+            np.abs(np.conjugate(measure_qubits.T)@evo), 2).ravel()
+        # print(prob_0[0])
         prob_1 = 1 - prob_0
         if sample == 0.0:
-            prob_parameters.append(prob_0)
+            prob_parameters.append(prob_0[0])
         else:
-            prob_parameters.append(prob_1)
+            prob_parameters.append(prob_1[0])
     probs.append(prob_parameters)
-    
-# probs = np.array(probs).transpose().reshape(no_parameters, no_samples) 
+probs = np.array(probs)
+log_prob = np.log(probs)
+log_likelihoods = np.sum(probs, axis=1)/no_samples
+print(log_likelihoods)
+# probs = np.array(probs).transpose().reshape(no_parameters, no_samples)
+# print(probs)
 print("hello")
