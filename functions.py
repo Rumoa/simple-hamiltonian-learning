@@ -49,11 +49,11 @@ def normalize_distribution(p):
         p = p*(1./p.sum())
     return p
 
-def sample(vec0, H, t0, tf, t_type="random", size = 100, t_step=0.1, t_single = 0):
+def Sample(vec0, H, t0=0, tf=10, t_type="random", size = 100, t_step=0.1, t_single = 0):
     if t_type=="random":
         tgrid = np.arange(t0, tf, t_step)
         t = np.random.choice(tgrid, size= size)
-    else:
+    if t_type=="single":
         t = t_single*np.ones(size)
     probs = [prob_0(evolve_state(H, vec0, ti)) for ti in t ]
     return np.array([np.random.choice([0, 1], p=[pi, 1-pi]) for pi in probs])
@@ -87,7 +87,7 @@ particles = np.arange(part_max/no_particles,part_max+part_max/no_particles,
 
 no_samples = 60
 
-samples = sample(state, h, 0, 0.5*3.1415, size = no_samples)
+samples = Sample(state, h, 0, 0.5*3.1415, size = no_samples)
 joblib.dump(samples, "samples/s1.job")
 # samples = joblib.load("samples/s1.job")
 
@@ -124,19 +124,22 @@ def resample(particles, distribution, a):
 
 likelihoods = np.empty([no_samples, no_particles])
 
+steps = 1000000
 
 
 
 
-for i_sample, sample in enumerate(samples):
-    print("Sample no. ", i_sample)
+for i_step in range(steps):
+    print("Sample no. ", i_step)
     # t = PGH(particles, weights)
-    t = np.sqrt(Cov(particles, weights))
+    t = 1/np.sqrt(Cov(particles, weights))
+
+    sample = Sample(state, h, t_type="single", size = 1, t_single=t)[0]
     print("time:", t)
     # if t>1E15:
     #     break
     print(np.average(particles, weights=normalize_distribution(weights)), np.var(particles))
-    if np.var(particles)<1E-7:
+    if np.var(particles)<1E-5:
         break
     probs_0 = [prob_0(evolve_state(H(X, particle_i), state, t))  for   particle_i in particles]   
     probs_sample = np.array([p0 if sample==0 else 1 - p0 for p0 in probs_0])
