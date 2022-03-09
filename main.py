@@ -174,12 +174,13 @@ def normalize_distribution(p):
         p = p*(1./p.sum())
     return p
 
+
 def get_time(distribution, particles):
     t = np.inf
     while np.isinf(t):
         distribution = normalize_distribution(distribution)
-        x_1, x_2 = np.random.choice( particles, size = 2,  p = distribution)
-        t =  1/norm_H(H_matrix(x_1)-H_matrix(x_2))
+        x_1, x_2 = np.random.choice(particles, size=2,  p=distribution)
+        t = 1/norm_H(H_matrix(x_1)-H_matrix(x_2))
     return t
 
 
@@ -197,21 +198,23 @@ for _, sample in enumerate(samples):
 
     prob_1 = 1 - prob_0
 
-    prob_parameters = [prob_i if sample == 0.0 else 1-prob_i for prob_i in prob_0 ]
+    prob_parameters = [prob_i if sample ==
+                       0.0 else 1-prob_i for prob_i in prob_0]
     probs.append(prob_parameters)
-    new_weights = np.array([weight_i*prob_parameter_i for (weight_i, prob_parameter_i) in zip(weights, prob_parameters)])
-    
+    new_weights = np.array([weight_i*prob_parameter_i for (weight_i,
+                           prob_parameter_i) in zip(weights, prob_parameters)])
+
     weights = normalize_distribution(new_weights)
 
-    
     if 1/np.sum(weights**2) < no_particles/2:
         print("ojo",  1/np.sum(weights**2))
-        new_particles = np.random.choice(particles, size = no_particles, p = normalize_distribution(weights) )
+        new_particles = np.random.choice(
+            particles, size=no_particles, p=normalize_distribution(weights))
         particles = new_particles
 probs = np.array(probs)
 print(weights)
-#rows are samples
-#columns are particles
+# rows are samples
+# columns are particles
 
 plt.plot(particles, weights)
 plt.show()
