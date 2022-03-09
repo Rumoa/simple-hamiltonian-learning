@@ -28,55 +28,72 @@ def mat_exp(A):
 
 
 def evolve_state(H, v, t):
-    evolved_state =  expm(-t*H*1j)@v
+    evolved_state = expm(-t*H*1j)@v
     return evolved_state/np.linalg.norm(evolved_state)
+
 
 @jit(nopython=True)
 def evolve_state_fast(H, v, t):
-    evolved_state =  mat_exp(-t*H*1j)@v    
+    evolved_state = mat_exp(-t*H*1j)@v
     return evolved_state/np.linalg.norm(evolved_state)
 
 
 def prob_0(vec, tol=1E-8):
     pr = np.power(np.abs(vec[0]), 2)
-    if np.abs(pr-1.0)<tol:
+    if np.abs(pr-1.0) < tol:
         pr = 1
-    if np.abs(pr-0)<tol:
-        pr = 0    
-    return pr    
+    if np.abs(pr-0) < tol:
+        pr = 0
+    return pr
+
 
 def norm_H(H):
     return np.sqrt(np.max(np.linalg.eig(np.transpose(np.conjugate(H))@H)[0]))
 
 
 def normalize_distribution(p):
-    if len(p.shape)==1:
+    '''
+    Normalize probability distribution p. If multidimensional, it assumes that each row (axis=1) contains the entire p
+    Each column will correspond to a different distribution
+    
+    Args:
+        p: numpy array containing the probability distribution(s)
+
+    Returns:
+        The normalized probability function.
+    '''
+    if len(p.shape) == 1:
         return p/p.sum()
     else:
         return p/p.sum(axis=1).reshape(-1, 1)
 
 
-
-def Sample(vec0, H, t0=0, tf=10, t_type="random", size = 100, t_step=0.1, t_single = 0):
-    if t_type=="random":
+def Sample(vec0, H, t0=0, tf=10, t_type="random", size=100, t_step=0.1, t_single=0):
+    if t_type == "random":
         tgrid = np.arange(t0, tf, t_step)
-        t = np.random.choice(tgrid, size= size)
-    if t_type=="single":
+        t = np.random.choice(tgrid, size=size)
+    if t_type == "single":
         t = t_single*np.ones(size)
-    probs = [prob_0(evolve_state_fast(H, vec0, ti)) for ti in t ]
+    probs = [prob_0(evolve_state_fast(H, vec0, ti)) for ti in t]
     return np.array([np.random.choice([0, 1], p=[pi, 1-pi]) for pi in probs])
 
 
 def PGH(particles, distribution):
-    x1, x2 = np.random.choice(particles, size=2, p=normalize_distribution(distribution), replace=True)
-    t = 1/ np.abs(x1 - x2 )
+    x1, x2 = np.random.choice(
+        particles, size=2, p=normalize_distribution(distribution), replace=True)
+    t = 1 / np.abs(x1 - x2)
     return t
 
-def Mean(particles, distribution):
-    p = normalize_distribution(distribution)
-    return (p*particles).sum()
 
-def Cov( particles, distribution):
+def Mean(particles, distribution):
+    if len(particles.shape) == 1 and len(distribution.shape)==1:
+        p = normalize_distribution(distribution)
+        return (p*particles).sum()
+    else:
+        return (particles*normalize_distribution(distribution)).sum(axis=1)
+
+
+def Cov(particles, distribution):
     p = normalize_distribution(distribution)
     # mu = (p*particles).sum()
     mu = (p*particles).sum()
@@ -92,7 +109,8 @@ def resample(particles, distribution, a):
     new_weights = []
     new_particles = []
     for _ in range(len(particles)):
-        part_candidate = np.random.choice(particles, size = 1, p=prob, replace=True)
+        part_candidate = np.random.choice(
+            particles, size=1, p=prob, replace=True)
         mu_i = a*part_candidate + (1-a)*mu
         part_prime = np.random.normal(mu_i, Sigma)
         new_particles.append(part_prime[0])
@@ -101,21 +119,21 @@ def resample(particles, distribution, a):
     return (np.array(new_particles), np.array(new_weights))
 
 
-
 def MSE(x, xtrue):
-    return np.power(x - xtrue,2)
-
+    return np.power(x - xtrue, 2)
 
 
 def update_SMC(t, particles, weights):
-    sample = Sample(state, h, t_type="single", size = 1, t_single=t)[0]
-    probs_0 = [prob_0(evolve_state_fast(H(X, particle_i), state, t))  for   particle_i in particles]   
-    probs_sample = np.array([p0 if sample==0 else 1 - p0 for p0 in probs_0])
+    sample = Sample(state, h, t_type="single", size=1, t_single=t)[0]
+    probs_0 = [prob_0(evolve_state_fast(H(X, particle_i), state, t))
+               for particle_i in particles]
+    probs_sample = np.array([p0 if sample == 0 else 1 - p0 for p0 in probs_0])
     # likelihoods[i_sample, :] = probs_sample
-    new_weights = weights* probs_sample
+    new_weights = weights * probs_sample
     n_weights = normalize_distribution(new_weights)
 
     return particles, n_weights
+
 
 def adaptive_bayesian_learn(particles, weights, h, state, steps, tol=1E-5):
     for i_step in range(steps):
@@ -124,37 +142,31 @@ def adaptive_bayesian_learn(particles, weights, h, state, steps, tol=1E-5):
         t = 1/np.sqrt(Cov(particles, weights))
 
         print("time:", t)
-        print(np.average(particles, weights=normalize_distribution(weights)), np.var(particles))
-        
+        print(np.average(particles, weights=normalize_distribution(
+            weights)), np.var(particles))
+
         particles, weights = update_SMC(t, particles, weights)
-        print("1/w^2: ", 1/np.sum(weights**2) )
+        print("1/w^2: ", 1/np.sum(weights**2))
 
         if 1/np.sum(weights**2) < no_particles/2:
             print("RESAMPLING")
             particles, weights = resample(particles, weights, a=0.9)
 
-        if np.var(particles)<tol:
+        if np.var(particles) < tol:
             break
 
     estimated_parameter = np.sum(np.dot(weights, particles))
     return estimated_parameter
 
 
-
-
-
-
-
 state = np.array([1, 0], dtype=np.complex128)
 state = state/np.linalg.norm(state)
-
-
 
 
 part_min = 0
 part_max = 2
 
-alpha = 1.5#0.834
+alpha = 1.5  # 0.834
 h = H(X, alpha)
 
 no_particles = 500
@@ -164,6 +176,7 @@ particles = np.linspace(part_min, part_max, no_particles)
 
 steps = 100000
 
-estimated_alpha = adaptive_bayesian_learn(particles, weights, h, state, steps, tol=1E-9)
+estimated_alpha = adaptive_bayesian_learn(
+    particles, weights, h, state, steps, tol=1E-9)
 print(MSE(estimated_alpha, alpha))
 print("end")
