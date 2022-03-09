@@ -50,9 +50,11 @@ def norm_H(H):
 
 
 def normalize_distribution(p):
-    if p.sum() != 1.0:
-        p = p*(1./p.sum())
-    return p
+    if len(p.shape)==1:
+        return p/p.sum()
+    else:
+        return p/p.sum(axis=1).reshape(-1, 1)
+
 
 
 def Sample(vec0, H, t0=0, tf=10, t_type="random", size = 100, t_step=0.1, t_single = 0):
