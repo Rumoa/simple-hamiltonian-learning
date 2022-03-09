@@ -79,11 +79,19 @@ def Sample(vec0, H, t0=0, tf=10, t_type="random", size=100, t_step=0.1, t_single
 
 
 def PGH(particles, distribution):
-    x1, x2 = np.random.choice(
-        particles, size=2, p=normalize_distribution(distribution), replace=True)
-    t = 1 / np.abs(x1 - x2)
-    return t
-
+    if len(particles.shape) == 1 and len(distribution.shape)==1:
+        x1, x2 = np.random.choice(
+            particles, size=2, p=normalize_distribution(distribution), replace=True)
+        t = 1 / np.linalg.norm(x1-x2)
+        return t
+    else:
+        x1 = np.zeros(shape=particles.shape[0])
+        x2 = np.zeros(shape=particles.shape[0])
+        for i in range(particles.shape[0]):
+            x1[i], x2[i] = np.random.choice(
+            particles[i], size=2, p=normalize_distribution(distribution)[i], replace=True)     
+        t = 1 / np.linalg.norm(x1-x2)
+        return t
 
 def Mean(particles, distribution):
     if len(particles.shape) == 1 and len(distribution.shape)==1:
