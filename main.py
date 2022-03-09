@@ -1,172 +1,52 @@
-# we are going to create a classical hamiltonian learning
-# we have the following:
-# P(x) which is our knowledge about the parameters
-# P(data|H(x)) which is computing the born rule of a certain experiment given the parameter
-# update it
-import math
-
 import numpy as np
 from scipy.linalg import expm
 import matplotlib.pyplot as plt
-
-import random
+import joblib
+from numba import jit
 
 
 X = np.array([[0, 1], [1, 0]])
 Y = np.array([[0, -1], [1, 0]])*1j
 Z = np.array([[1, 0], [0, -1]])
 
-hbar = 1
+h_bar = 1
+np.random.seed(1)
 
 
-def H_matrix(alpha):
-    return alpha/2*X
+def H(matrix, omega):
+    return omega * matrix
 
 
-def H(v, alpha):
-    v = v.copy()
-    if v.shape != (0, 1):
-        v = v.reshape(-1, 1)
-    return H_matrix(alpha)@v
+@jit(nopython=True)
+def mat_exp(A):
+    d, Y = np.linalg.eig(A)
+    Yinv = np.linalg.pinv(Y)
+    D = np.diag(np.exp(d))
+
+    B = Y@D@Yinv
+    return B
 
 
-def evol_operator(H, t):
-    return expm(-1j*t*H)
+def evolve_state(H, v, t):
+    evolved_state =  expm(-t*H*1j)@v
+    return evolved_state/np.linalg.norm(evolved_state)
 
-# evol_operator = np.vectorize(evol_operator)
-
-
-def evol_vectorize(H, v, t):
-    result = np.zeros((len(t), 2, 1), dtype='complex_')
-    for i, t_now in enumerate(t):
-        result[i, :, :] = evol_operator(H, t_now)@v
-    return result
+@jit(nopython=True)
+def evolve_state_fast(H, v, t):
+    evolved_state =  mat_exp(-t*H*1j)@v    
+    return evolved_state/np.linalg.norm(evolved_state)
 
 
-def evol_state(H, v, t):
-    if hasattr(t, "__len__") is False:
-        return np.matmul(evol_operator(H, t), v)
-    else:
-        return evol_vectorize(H, v, t)
-
-
-def prob(omega, t, d):
-    return np.power(np.sin((omega*t/2)), 2*(d))*np.power(np.cos((omega*t/2)), 2*(1-d))
-
-# def prob_0(omega, t):
-#     return np.power(np.cos(t*omega/2),2)
-
-
-def sample_results(n, omega):
-    results = []
-    for _ in range(n):
-        t = np.random.uniform(t_0, t_f)
-        p0 = prob(omega, t, 0)
-        results.append(np.random.choice([0.0, 1.0], p=[p0, 1 - p0]))
-    return results
-
+def prob_0(vec, tol=1E-8):
+    pr = np.power(np.abs(vec[0]), 2)
+    if np.abs(pr-1.0)<tol:
+        pr = 1
+    if np.abs(pr-0)<tol:
+        pr = 0    
+    return pr    
 
 def norm_H(H):
-    return np.sqrt(np.max(np.linalg.eig(np.transpose(H)@H)[0]))
-
-
-no_parameters = 100
-prior = np.ones(no_parameters)
-weights = np.ones(no_parameters)
-# evol_vector = np.vectorize(evol_vector)
-
-alpha = np.linspace(0, 1, no_parameters)
-v = np.array([1, 0]).reshape(-1, 1)/np.sqrt(1)
-measure_qubits = np.array([1, 0]).reshape(-1, 1)
-t = 3.7  # np.linspace(0, 10, 100)
-t_0 = 0.0
-t_f = 5.0
-n_samples = 1000
-
-# evolution = np.zeros((len(alpha), len(t), 2, 1), dtype='complex_')
-# evolution = np.zeros((len(alpha),  2, 1), dtype='complex_')
-# # the first component is each alpha of the hamiltonian
-# for i, alpha_i in enumerate(alpha):
-#     evolution[i, :, :] = evol_state(H_matrix(alpha_i), v, t)
-
-
-# # prob_0 = np.squeeze(np.array([np.conjugate(v.T)@i for i in evolved_arr[:, :, :]]))
-# prob_0 = np.power(np.abs(np.squeeze(
-#     np.array([np.conjugate(measure_qubits.T)@i for i in evolution]))), 2)
-# plt.plot(t, np.real(prob_0[1, :]))
-# plt.show()
-
-
-# for i in range(len(alpha)):
-#     plt.plot(t, np.real(prob_0[i, :]), label='l')
-#     plt.legend(str(alpha[i]))
-# plt.show()
-# # samples = sample_results(50000, 0.8)
-# print("hello")
-
-
-# aqui aqui
-# alpha = [0, 1]
-# np.random.seed(1)
-
-# no_parameters = 50
-# no_samples = 50000
-# alpha = np.linspace(0, 1, no_parameters)
-# samples = sample_results(no_samples, 0.8)
-# probs = []
-# alpha = [0.0, 0.8, 1]
-# no_parameters=3
-# for i, alpha_i in enumerate(alpha):
-#     prob_parameters = []
-#     for i_sample, sample in enumerate(samples):
-#         t = 1/np.sqrt(np.power(np.random.choice(alpha)-np.random.choice(alpha), 2))
-#         while math.isinf(t):
-#             print("ojo")
-#             t = 1/np.sqrt(np.power(np.random.choice(alpha)-np.random.choice(alpha), 2))
-#         # print(t)
-#         evo = evol_state(H_matrix(alpha_i), v, t)
-#         prob_0 = np.power(
-#             np.abs(np.conjugate(measure_qubits.T)@evo), 2).ravel()
-#         # print(prob_0[0])
-#         prob_1 = 1 - prob_0
-#         if sample == 0.0:
-#             prob_parameters.append(prob_0[0])
-#         else:
-#             prob_parameters.append(prob_1[0])
-#     probs.append(prob_parameters)
-# probs = np.array(probs)
-# log_prob = np.log(probs)
-# log_likelihoods = np.sum(probs, axis=1)/no_samples
-# print(log_likelihoods)
-# # probs = np.array(probs).transpose().reshape(no_parameters, no_samples)
-# # print(probs)
-
-
-# # the first component is each alpha of the hamiltonian
-# for i, alpha_i in enumerate(alpha):
-#     evolution[i, :, :, :] = evol_state(H_matrix(alpha_i), v, t)
-
-# samples
-# particles
-
-true_parameter = 0.8
-no_particles = 5
-no_samples = 100
-
-
-particles = np.linspace(0, 1, no_particles)
-np.random.seed(1)
-samples = sample_results(no_samples, true_parameter)
-prob_parameters = []
-probs = []
-
-# We must select a time.
-
-# t = 1.5  # for now it does the job
-
-
-# prior = np.ones(no_particles)/np.sqrt(no_particles)
-weights = np.ones(no_particles)/np.sqrt(no_particles)
+    return np.sqrt(np.max(np.linalg.eig(np.transpose(np.conjugate(H))@H)[0]))
 
 
 def normalize_distribution(p):
@@ -175,49 +55,105 @@ def normalize_distribution(p):
     return p
 
 
-def get_time(distribution, particles):
-    t = np.inf
-    while np.isinf(t):
-        distribution = normalize_distribution(distribution)
-        x_1, x_2 = np.random.choice(particles, size=2,  p=distribution)
-        t = 1/norm_H(H_matrix(x_1)-H_matrix(x_2))
+def Sample(vec0, H, t0=0, tf=10, t_type="random", size = 100, t_step=0.1, t_single = 0):
+    if t_type=="random":
+        tgrid = np.arange(t0, tf, t_step)
+        t = np.random.choice(tgrid, size= size)
+    if t_type=="single":
+        t = t_single*np.ones(size)
+    probs = [prob_0(evolve_state_fast(H, vec0, ti)) for ti in t ]
+    return np.array([np.random.choice([0, 1], p=[pi, 1-pi]) for pi in probs])
+
+
+def PGH(particles, distribution):
+    x1, x2 = np.random.choice(particles, size=2, p=normalize_distribution(distribution), replace=True)
+    t = 1/ np.abs(x1 - x2 )
     return t
 
 
-for _, sample in enumerate(samples):
-
-    evolution = np.zeros((len(particles),  2, 1), dtype='complex_')
-    # the first component is each alpha of the hamiltonian
-    t = get_time(weights,  particles)
-    print(t)
-    for i, particle in enumerate(particles):
-        evolution[i, :, :] = evol_state(H_matrix(particle), v, t)
-
-    prob_0 = np.power(np.abs(np.squeeze(
-        np.array([np.conjugate(measure_qubits.T)@i for i in evolution]))), 2)
-
-    prob_1 = 1 - prob_0
-
-    prob_parameters = [prob_i if sample ==
-                       0.0 else 1-prob_i for prob_i in prob_0]
-    probs.append(prob_parameters)
-    new_weights = np.array([weight_i*prob_parameter_i for (weight_i,
-                           prob_parameter_i) in zip(weights, prob_parameters)])
-
-    weights = normalize_distribution(new_weights)
-
-    if 1/np.sum(weights**2) < no_particles/2:
-        print("ojo",  1/np.sum(weights**2))
-        new_particles = np.random.choice(
-            particles, size=no_particles, p=normalize_distribution(weights))
-        particles = new_particles
-probs = np.array(probs)
-print(weights)
-# rows are samples
-# columns are particles
-
-plt.plot(particles, weights)
-plt.show()
+def Cov( particles, distribution):
+    p = normalize_distribution(distribution)
+    # mu = (p*particles).sum()
+    mu = (p*particles).sum()
+    sigma = (p*(particles**2)).sum() - (mu*mu)
+    return sigma
 
 
-print("hello")
+def resample(particles, distribution, a):
+    prob = normalize_distribution(distribution)
+    mu = np.average(particles, weights=prob)
+    h = np.sqrt(1-a**2)
+    Sigma = h**2 * Cov(particles, prob)
+    new_weights = []
+    new_particles = []
+    for _ in range(len(particles)):
+        part_candidate = np.random.choice(particles, size = 1, p=prob, replace=True)
+        mu_i = a*part_candidate + (1-a)*mu
+        part_prime = np.random.normal(mu_i, Sigma)
+        new_particles.append(part_prime[0])
+        new_weights.append(1/len(particles))
+
+    return (np.array(new_particles), np.array(new_weights))
+
+
+
+
+
+
+
+def adaptive_bayesian_learn(particles, weights, h, state, steps, tol=1E-5):
+    for i_step in range(steps):
+        print("Sample no. ", i_step)
+        # t = PGH(particles, weights)
+        t = 1/np.sqrt(Cov(particles, weights))
+
+        sample = Sample(state, h, t_type="single", size = 1, t_single=t)[0]
+        print("time:", t)
+        print(np.average(particles, weights=normalize_distribution(weights)), np.var(particles))
+        if np.var(particles)<tol:
+            break
+        probs_0 = [prob_0(evolve_state_fast(H(X, particle_i), state, t))  for   particle_i in particles]   
+        probs_sample = np.array([p0 if sample==0 else 1 - p0 for p0 in probs_0])
+        # likelihoods[i_sample, :] = probs_sample
+        new_weights = weights* probs_sample
+        weights = normalize_distribution(new_weights)
+        print("1/w^2: ", 1/np.sum(weights**2) )
+
+        if 1/np.sum(weights**2) < no_particles/2:
+            print("RESAMPLING")
+            particles, weights = resample(particles, weights, a=0.98)
+
+
+    estimated_parameter = np.sum(np.dot(weights, particles))
+    return estimated_parameter
+
+
+
+
+
+
+
+state = np.array([1, 0], dtype=np.complex128)
+state = state/np.linalg.norm(state)
+
+
+
+
+part_min = 0
+part_max = 10
+
+alpha = 1.842#0.834
+h = H(X, alpha)
+
+no_particles = 1000
+weights = normalize_distribution(np.ones(no_particles))
+particles = np.arange(part_max/no_particles,part_max+part_max/no_particles,
+                   part_max/no_particles)
+
+particles = np.linspace(part_min, part_max, no_particles)
+
+steps = 100000
+
+adaptive_bayesian_learn(particles, weights, h, state, steps, tol=1E-7)
+
+print("end")

@@ -77,7 +77,7 @@ state = state/np.linalg.norm(state)
 part_min = 0
 part_max = 10
 
-alpha = 3.4#0.834
+alpha = 4.2#0.834
 h = H(X, alpha)
 
 no_particles = 100
