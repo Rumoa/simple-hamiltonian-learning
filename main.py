@@ -94,11 +94,14 @@ def Mean(particles, distribution):
 
 
 def Cov(particles, distribution):
-    p = normalize_distribution(distribution)
-    # mu = (p*particles).sum()
-    mu = (p*particles).sum()
-    sigma = (p*(particles**2)).sum() - (mu*mu)
-    return sigma
+    if len(particles.shape) == 1 and len(distribution.shape)==1:
+        p = normalize_distribution(distribution)
+        mu = Mean(particles, p)
+        sigma = (p*(particles**2)).sum() - (mu*mu)
+        return sigma
+    else:
+        p = normalize_distribution(distribution)
+        return (p*particles**2).sum(axis=1) - Mean(particles, p)**2
 
 
 def resample(particles, distribution, a):
