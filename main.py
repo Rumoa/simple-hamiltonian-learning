@@ -13,9 +13,12 @@ h_bar = 1
 np.random.seed(1)
 
 
-def H(matrix, omega):
-    return omega * matrix
+def H(free_model, omega):
+    return free_model(omega)
 
+
+def free_model(omega):
+    return omega*X
 
 @jit(nopython=True)
 def mat_exp(A):
@@ -149,9 +152,9 @@ def MSE(x, xtrue):
  
 
 
-def update_SMC(t, particles, weights):
-    sample = Sample(state, h, t_type="single", size=1, t_single=t)[0]
-    probs_0 = [prob_0(evolve_state_fast(H(X, particle_i), state, t))
+def update_SMC(t, particles, weights, h_true,h_guess, state ):
+    sample = Sample(state, h_true, t_type="single", size=1, t_single=t)[0]
+    probs_0 = [prob_0(evolve_state_fast(h_guess(particle_i), state, t))
                for particle_i in particles]
     probs_sample = np.array([p0 if sample == 0 else 1 - p0 for p0 in probs_0])
     # likelihoods[i_sample, :] = probs_sample
@@ -161,7 +164,7 @@ def update_SMC(t, particles, weights):
     return particles, n_weights
 
 
-def adaptive_bayesian_learn(particles, weights, h, state, steps, tol=1E-5):
+def adaptive_bayesian_learn(particles, weights, h_true, h_guess, state, steps, tol=1E-5):
     for i_step in range(steps):
         print("Sample no. ", i_step)
         # t = PGH(particles, weights)
@@ -171,7 +174,7 @@ def adaptive_bayesian_learn(particles, weights, h, state, steps, tol=1E-5):
         print(np.average(particles, weights=normalize_distribution(
             weights)), np.var(particles))
 
-        particles, weights = update_SMC(t, particles, weights)
+        particles, weights = update_SMC(t, particles, weights, h_true, h_guess, state=state)
         print("1/w^2: ", 1/np.sum(weights**2))
 
         if 1/np.sum(weights**2) < no_particles/2:
@@ -193,7 +196,7 @@ part_min = 0
 part_max = 2
 
 alpha = 1.5  # 0.834
-h = H(X, alpha)
+h = H(free_model, alpha)
 
 no_particles = 500
 weights = normalize_distribution(np.ones(no_particles))
@@ -203,6 +206,6 @@ particles = np.linspace(part_min, part_max, no_particles)
 steps = 100000
 
 estimated_alpha = adaptive_bayesian_learn(
-    particles, weights, h, state, steps, tol=1E-9)
+    particles=particles, weights = weights,  state = state, steps = steps,h_true=h, h_guess=free_model, tol=1E-9)
 print(MSE(estimated_alpha, alpha))
 print("end")
