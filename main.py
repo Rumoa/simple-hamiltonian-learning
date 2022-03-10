@@ -13,12 +13,17 @@ h_bar = 1
 np.random.seed(1)
 
 
-def H(free_model, omega):
-    return free_model(omega)
-
+def H(free_model, *omega):
+    return free_model(*omega)
 
 def free_model(omega):
     return omega*X
+
+def free_model_2(omega):
+    return omega[0]*X + omega[1]*Y
+
+
+
 
 @jit(nopython=True)
 def mat_exp(A):
