@@ -16,13 +16,13 @@ np.random.seed(1)
 def H(free_model, *omega):
     return free_model(*omega)
 
+
 def free_model(omega):
     return omega*X
 
+
 def free_model_2(omega):
     return omega[0]*X + omega[1]*Y
-
-
 
 
 @jit(nopython=True)
@@ -63,7 +63,7 @@ def normalize_distribution(p):
     '''
     Normalize probability distribution p. If multidimensional, it assumes that each row (axis=1) contains the entire p
     Each column will correspond to a different distribution
-    
+
     Args:
         p: numpy array containing the probability distribution(s)
 
@@ -87,7 +87,7 @@ def Sample(vec0, H, t0=0, tf=10, t_type="random", size=100, t_step=0.1, t_single
 
 
 def PGH(particles, distribution):
-    if len(particles.shape) == 1 and len(distribution.shape)==1:
+    if len(particles.shape) == 1 and len(distribution.shape) == 1:
         x1, x2 = np.random.choice(
             particles, size=2, p=normalize_distribution(distribution), replace=True)
         t = 1 / np.linalg.norm(x1-x2)
@@ -97,12 +97,13 @@ def PGH(particles, distribution):
         x2 = np.zeros(shape=particles.shape[0])
         for i in range(particles.shape[0]):
             x1[i], x2[i] = np.random.choice(
-            particles[i], size=2, p=normalize_distribution(distribution)[i], replace=True)     
+                particles[i], size=2, p=normalize_distribution(distribution)[i], replace=True)
         t = 1 / np.linalg.norm(x1-x2)
         return t
 
+
 def Mean(particles, distribution):
-    if len(particles.shape) == 1 and len(distribution.shape)==1:
+    if len(particles.shape) == 1 and len(distribution.shape) == 1:
         p = normalize_distribution(distribution)
         return (p*particles).sum()
     else:
@@ -110,7 +111,7 @@ def Mean(particles, distribution):
 
 
 def Cov(particles, distribution):
-    if len(particles.shape) == 1 and len(distribution.shape)==1:
+    if len(particles.shape) == 1 and len(distribution.shape) == 1:
         p = normalize_distribution(distribution)
         mu = Mean(particles, p)
         sigma = (p*(particles**2)).sum() - (mu*mu)
@@ -127,7 +128,7 @@ def resample(particles, distribution, a):
     Sigma = h**2 * Cov(particles, prob)
     new_weights = []
     new_particles = []
-    if len(particles.shape) == 1 and len(distribution.shape)==1:
+    if len(particles.shape) == 1 and len(distribution.shape) == 1:
         for _ in range(len(particles)):
             part_candidate = np.random.choice(
                 particles, size=1, p=prob, replace=True)
@@ -154,13 +155,18 @@ def resample(particles, distribution, a):
 
 def MSE(x, xtrue):
     return np.power(x - xtrue, 2)
- 
 
 
-def update_SMC(t, particles, weights, h_true,h_guess, state ):
+def update_SMC(t, particles, weights, h_true, h_guess, state):
     sample = Sample(state, h_true, t_type="single", size=1, t_single=t)[0]
-    probs_0 = [prob_0(evolve_state_fast(h_guess(particle_i), state, t))
-               for particle_i in particles]
+
+    if len(particles.shape) == 1 and len(weights.shape) == 1:
+        probs_0 = [prob_0(evolve_state_fast(h_guess(particle_i), state, t)) 
+                    for particle_i in particles]
+        
+    else:
+        probs_0 = [prob_0(evolve_state_fast(h_guess(particle_i), state, t)) 
+                    for particle_i in particles.T]
     probs_sample = np.array([p0 if sample == 0 else 1 - p0 for p0 in probs_0])
     # likelihoods[i_sample, :] = probs_sample
     new_weights = weights * probs_sample
@@ -179,7 +185,8 @@ def adaptive_bayesian_learn(particles, weights, h_true, h_guess, state, steps, t
         print(np.average(particles, weights=normalize_distribution(
             weights)), np.var(particles))
 
-        particles, weights = update_SMC(t, particles, weights, h_true, h_guess, state=state)
+        particles, weights = update_SMC(
+            t, particles, weights, h_true, h_guess, state=state)
         print("1/w^2: ", 1/np.sum(weights**2))
 
         if 1/np.sum(weights**2) < no_particles/2:
@@ -211,6 +218,6 @@ particles = np.linspace(part_min, part_max, no_particles)
 steps = 100000
 
 estimated_alpha = adaptive_bayesian_learn(
-    particles=particles, weights = weights,  state = state, steps = steps,h_true=h, h_guess=free_model, tol=1E-9)
+    particles=particles, weights=weights,  state=state, steps=steps, h_true=h, h_guess=free_model, tol=1E-9)
 print(MSE(estimated_alpha, alpha))
 print("end")
