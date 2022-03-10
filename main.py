@@ -114,24 +114,39 @@ def Cov(particles, distribution):
 
 def resample(particles, distribution, a):
     prob = normalize_distribution(distribution)
-    mu = np.average(particles, weights=prob)
+    mu = Mean(particles, prob)
     h = np.sqrt(1-a**2)
     Sigma = h**2 * Cov(particles, prob)
     new_weights = []
     new_particles = []
-    for _ in range(len(particles)):
-        part_candidate = np.random.choice(
-            particles, size=1, p=prob, replace=True)
-        mu_i = a*part_candidate + (1-a)*mu
-        part_prime = np.random.normal(mu_i, Sigma)
-        new_particles.append(part_prime[0])
-        new_weights.append(1/len(particles))
+    if len(particles.shape) == 1 and len(distribution.shape)==1:
+        for _ in range(len(particles)):
+            part_candidate = np.random.choice(
+                particles, size=1, p=prob, replace=True)
+            mu_i = a*part_candidate + (1-a)*mu
+            part_prime = np.random.normal(mu_i, Sigma)
+            new_particles.append(part_prime[0])
+            new_weights.append(1/len(particles))
 
-    return (np.array(new_particles), np.array(new_weights))
+        return (np.array(new_particles), np.array(new_weights))
+    else:
+        new_particles = np.zeros(particles.shape)
+        new_weights = np.zeros(distribution.shape)
+        for i in range(particles.shape[0]):
+            for j in range(particles.shape[1]):
+                part_candidate = np.random.choice(
+                    particles[i], size=1, p=prob[i], replace=True)
+                mu_i = a*part_candidate + (1-a)*mu[i]
+                part_prime = np.random.normal(mu_i, Sigma[i])
+                new_particles[i, j] = part_prime[0]
+                new_weights[i, j] = 1/len(particles)
+
+        return (new_particles, new_weights)
 
 
 def MSE(x, xtrue):
     return np.power(x - xtrue, 2)
+ 
 
 
 def update_SMC(t, particles, weights):
