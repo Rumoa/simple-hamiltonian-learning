@@ -148,7 +148,7 @@ def resample(particles, distribution, a):
                 mu_i = a*part_candidate + (1-a)*mu[i]
                 part_prime = np.random.normal(mu_i, Sigma[i])
                 new_particles[i, j] = part_prime[0]
-                new_weights[i, j] = 1/len(particles)
+                new_weights[i, j] = 1/particles.shape[1]
 
         return (new_particles, new_weights)
 
