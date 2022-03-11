@@ -97,7 +97,7 @@ def PGH(particles, distribution):
         x2 = np.zeros(shape=particles.shape[0])
         for i in range(particles.shape[0]):
             x1[i], x2[i] = np.random.choice(
-                particles[i], size=2, p=normalize_distribution(distribution)[i], replace=True)
+                particles[i], size=2, p=normalize_distribution(distribution), replace=True)
         t = 1 / np.linalg.norm(x1-x2)
         return t
 
@@ -144,11 +144,11 @@ def resample(particles, distribution, a):
         for i in range(particles.shape[0]):
             for j in range(particles.shape[1]):
                 part_candidate = np.random.choice(
-                    particles[i], size=1, p=prob[i], replace=True)
+                    particles[i], size=1, p=prob, replace=True)
                 mu_i = a*part_candidate + (1-a)*mu[i]
                 part_prime = np.random.normal(mu_i, Sigma[i])
                 new_particles[i, j] = part_prime[0]
-                new_weights[i, j] = 1/len(particles)
+                new_weights[j] = 1/particles.shape[1]
 
         return (new_particles, new_weights)
 
