@@ -182,8 +182,9 @@ def adaptive_bayesian_learn(particles, weights, h_true, h_guess, state, steps, t
         t = 1/np.sqrt(Cov(particles, weights))
 
         print("time:", t)
-        print(np.average(particles, weights=normalize_distribution(
-            weights)), np.var(particles))
+        print("Mean", Mean(particles, normalize_distribution(weights)))
+        print("Cov", Cov(particles, normalize_distribution(weights)) ) 
+
 
         particles, weights = update_SMC(
             t, particles, weights, h_true, h_guess, state=state)
