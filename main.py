@@ -110,6 +110,8 @@ def Mean(particles, distribution):
         return (particles*normalize_distribution(distribution)).sum(axis=1)
 
 
+
+
 def Cov(particles, distribution):
     if len(particles.shape) == 1 and len(distribution.shape) == 1:
         p = normalize_distribution(distribution)
@@ -118,7 +120,20 @@ def Cov(particles, distribution):
         return sigma
     else:
         p = normalize_distribution(distribution)
-        return (p*particles**2).sum(axis=1) - Mean(particles, p)**2
+        mu = Mean(particles, p).reshape(-1, 1)
+        D = particles.shape[0]
+        cov_sum = np.zeros([D, D])
+        for i in range(particles.shape[1]):
+            part = particles[:, i].reshape(-1, 1)
+            cov_sum = cov_sum + p[i]*part@part.T
+            
+        mu = Mean(particles, p).reshape(-1, 1)
+        return cov_sum - mu@mu.T
+        
+
+
+
+
 
 
 def resample(particles, distribution, a):
@@ -141,16 +156,18 @@ def resample(particles, distribution, a):
     else:
         new_particles = np.zeros(particles.shape)
         new_weights = np.zeros(distribution.shape)
-        for i in range(particles.shape[0]):
-            for j in range(particles.shape[1]):
-                part_candidate = np.random.choice(
-                    particles[i], size=1, p=prob, replace=True)
-                mu_i = a*part_candidate + (1-a)*mu[i]
-                part_prime = np.random.normal(mu_i, Sigma[i])
-                new_particles[i, j] = part_prime[0]
-                new_weights[j] = 1/particles.shape[1]
-
+        M = particles.shape[1] #number of particles
+        for j in range(particles.shape[1]):
+            loc_candidate = np.random.choice(
+                   M , size=1, p=prob, replace=True)
+            part_candidate = particles[:, loc_candidate]
+            mu_i = a*part_candidate + (1-a)*mu.reshape(-1, 1)
+            part_prime = np.random.multivariate_normal(mu_i[:, 0], Sigma)
+            new_particles[:, j] = part_prime
+            new_weights[j] = 1/M
+   
         return (new_particles, new_weights)
+
 
 
 def MSE(x, xtrue):
