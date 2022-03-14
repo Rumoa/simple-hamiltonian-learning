@@ -197,8 +197,8 @@ def update_SMC(t, particles, weights, h_true, h_guess, state):
 def adaptive_bayesian_learn(particles, weights, h_true, h_guess, state, steps, tol=1E-5):
     for i_step in range(steps):
         print("Sample no. ", i_step)
-        t = PGH(particles, weights)
-        # t = 1/np.sqrt(Cov(particles, weights))
+        # t = PGH(particles, weights)
+        t = 1/np.sqrt(Cov(particles, weights))
         # t = 1/np.sqrt(np.trace(Cov(particles, weights)))
         # t = 1/np.sqrt(np.linalg.det(Cov(particles, weights)))
 
@@ -216,8 +216,8 @@ def adaptive_bayesian_learn(particles, weights, h_true, h_guess, state, steps, t
             print("RESAMPLING")
             particles, weights = resample(particles, weights, a=0.9)
 
-        # if np.var(particles) < tol:
-            # break
+        if np.var(particles) < tol:
+            break
 
     # estimated_parameter = np.sum(np.dot(weights, particles))
     estimated_parameter = Mean(particles, weights)
@@ -230,19 +230,20 @@ state = state/np.linalg.norm(state)
 
 
 
-bounds = np.array([[0, 10],
-                    [0, 10]])
+# bounds = np.array([[0, 10],
+                    # [0, 10]])
 
-# bounds = np.array([[0, 2]])
-alpha1 = 1.284 # 0.834
-alpha2 = 3.1
-h = H(free_model_2, [alpha1, alpha2])
-# h = H(free_model, alpha1)
+bounds = np.array([[0, 2]])
+alpha1 = 0.3 # 0.834
+alpha2 = 0.2
+# h = H(free_model_2, [alpha1, alpha2])
+h = H(free_model, alpha1)
+D = 1 #dimension
 
 no_particles = 100
 weights = normalize_distribution(np.ones(no_particles))
 
-D = 2 #dimension
+
 particles = np.zeros([D, no_particles])
 
 for i in range(bounds.shape[0]):
@@ -255,7 +256,7 @@ if D==1:
 steps = 1000
 
 estimated_alpha = adaptive_bayesian_learn(
-    particles=particles, weights=weights,  state=state, steps=steps, h_true=h, h_guess=free_model_2, tol=1E-9)
+    particles=particles, weights=weights,  state=state, steps=steps, h_true=h, h_guess=free_model, tol=1E-9)
 print("Estimated results: ", estimated_alpha)
 # print(MSE(estimated_alpha, alpha))
 print("end")
