@@ -93,12 +93,13 @@ def PGH(particles, distribution):
         t = 1 / np.linalg.norm(x1-x2)
         return t
     else:
-        x1 = np.zeros(shape=particles.shape[0])
-        x2 = np.zeros(shape=particles.shape[0])
-        for i in range(particles.shape[0]):
-            x1[i], x2[i] = np.random.choice(
-                particles[i], size=2, p=normalize_distribution(distribution), replace=True)
-        t = 1 / np.linalg.norm(x1-x2)
+        M = particles.shape[1] #no of particles
+        l1, l2 = np.random.choice(
+                   M , size=2, p=normalize_distribution(distribution), replace=False)
+        p1 = particles[:, l1]
+        p2 = particles[:, l2]
+
+        t = 1 / np.linalg.norm(p1 - p2)
         return t
 
 
@@ -161,6 +162,7 @@ def resample(particles, distribution, a):
             loc_candidate = np.random.choice(
                    M , size=1, p=prob, replace=True)
             part_candidate = particles[:, loc_candidate]
+            # print(part_candidate)
             mu_i = a*part_candidate + (1-a)*mu.reshape(-1, 1)
             part_prime = np.random.multivariate_normal(mu_i[:, 0], Sigma)
             new_particles[:, j] = part_prime
@@ -195,8 +197,11 @@ def update_SMC(t, particles, weights, h_true, h_guess, state):
 def adaptive_bayesian_learn(particles, weights, h_true, h_guess, state, steps, tol=1E-5):
     for i_step in range(steps):
         print("Sample no. ", i_step)
-        # t = PGH(particles, weights)
-        t = 1/np.sqrt(Cov(particles, weights))
+        t = PGH(particles, weights)
+        # t = 1/np.sqrt(Cov(particles, weights))
+        # t = 1/np.sqrt(np.trace(Cov(particles, weights)))
+        # t = 1/np.sqrt(np.linalg.det(Cov(particles, weights)))
+
 
         print("time:", t)
         print("Mean", Mean(particles, normalize_distribution(weights)))
@@ -211,10 +216,11 @@ def adaptive_bayesian_learn(particles, weights, h_true, h_guess, state, steps, t
             print("RESAMPLING")
             particles, weights = resample(particles, weights, a=0.9)
 
-        if np.var(particles) < tol:
-            break
+        # if np.var(particles) < tol:
+            # break
 
-    estimated_parameter = np.sum(np.dot(weights, particles))
+    # estimated_parameter = np.sum(np.dot(weights, particles))
+    estimated_parameter = Mean(particles, weights)
     return estimated_parameter
 
 
@@ -222,20 +228,34 @@ state = np.array([1, 0], dtype=np.complex128)
 state = state/np.linalg.norm(state)
 
 
-part_min = 0
-part_max = 2
 
-alpha = 1.5  # 0.834
-h = H(free_model, alpha)
 
-no_particles = 500
+bounds = np.array([[0, 10],
+                    [0, 10]])
+
+# bounds = np.array([[0, 2]])
+alpha1 = 1.284 # 0.834
+alpha2 = 3.1
+h = H(free_model_2, [alpha1, alpha2])
+# h = H(free_model, alpha1)
+
+no_particles = 100
 weights = normalize_distribution(np.ones(no_particles))
 
-particles = np.linspace(part_min, part_max, no_particles)
+D = 2 #dimension
+particles = np.zeros([D, no_particles])
 
-steps = 100000
+for i in range(bounds.shape[0]):
+    p_min, p_max = bounds[i, :]
+    particles[i, :] = np.linspace(p_min, p_max, no_particles)
+
+if D==1:
+    particles = particles[0, :]
+
+steps = 1000
 
 estimated_alpha = adaptive_bayesian_learn(
-    particles=particles, weights=weights,  state=state, steps=steps, h_true=h, h_guess=free_model, tol=1E-9)
-print(MSE(estimated_alpha, alpha))
+    particles=particles, weights=weights,  state=state, steps=steps, h_true=h, h_guess=free_model_2, tol=1E-9)
+print("Estimated results: ", estimated_alpha)
+# print(MSE(estimated_alpha, alpha))
 print("end")
