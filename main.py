@@ -4,6 +4,9 @@ import matplotlib.pyplot as plt
 import joblib
 from numba import jit
 
+import qutip 
+from qutip import tensor, sigmaz, identity, basis, sigmax
+
 
 X = np.array([[0, 1], [1, 0]])
 Y = np.array([[0, -1], [1, 0]])*1j
@@ -13,16 +16,40 @@ h_bar = 1
 np.random.seed(1)
 
 
+
+def initial_state(dim=1):
+    plus = (basis(2, 0) + basis(2, 1)).unit()
+    if dim ==1:
+        return plus
+    else:
+        return tensor([plus for _ in range(dim)])
+
+
+# def evolve_state(H, v, t):
+#     # times = [0.0 , t]
+#     times = np.linspace(0.0, t, 50)
+#     re = qutip.sesolve(H, v, times)
+#     return re.states[-1]
+
+
 def H(free_model, *omega):
     return free_model(*omega)
 
 
 def free_model(omega):
-    return omega*X
+    return omega*sigmaz()
 
 
 def free_model_2(omega):
     return omega[0]*X + omega[1]*Y
+
+def free_model_3(omega):
+    return omega[0]*X + omega[1]*Z
+
+def model_two_qubits_free(omega):
+    H = omega[0]*tensor(sigmaz(), identity(2)) 
+    + omega[1]*tensor(identity(2), sigmaz())
+    return H
 
 
 @jit(nopython=True)
@@ -35,9 +62,18 @@ def mat_exp(A):
     return B
 
 
+
 def evolve_state(H, v, t):
-    evolved_state = expm(-t*H*1j)@v
-    return evolved_state/np.linalg.norm(evolved_state)
+    dims = v.dims
+    vp = np.array(v[:, 0], dtype=np.complex128)
+    Hp = H[:]
+    re = evolve_state_fast(Hp, vp, t)
+    return qutip.Qobj(re, dims=dims)
+
+
+# def evolve_state(H, v, t):
+#     evolved_state = expm(-t*H*1j)@v
+#     return evolved_state/np.linalg.norm(evolved_state)
 
 
 @jit(nopython=True)
@@ -176,25 +212,59 @@ def MSE(x, xtrue):
     return np.power(x - xtrue, 2)
 
 
-def update_SMC(t, particles, weights, h_true, h_guess, state):
-    sample = Sample(state, h_true, t_type="single", size=1, t_single=t)[0]
+# def update_SMC(t, particles, weights, h_true, h_guess, state):
+#     sample = Sample(state, h_true, t_type="single", size=1, t_single=t)[0]
+
+#     if len(particles.shape) == 1 and len(weights.shape) == 1:
+#         probs_0 = [prob_0(evolve_state_fast(h_guess(particle_i), state, t)) 
+#                     for particle_i in particles]
+        
+#     else:
+#         probs_0 = [prob_0(evolve_state_fast(h_guess(particle_i), state, t)) 
+#                     for particle_i in particles.T]
+#     probs_sample = np.array([p0 if sample == 0 else 1 - p0 for p0 in probs_0])
+#     # likelihoods[i_sample, :] = probs_sample
+#     new_weights = weights * probs_sample
+#     n_weights = normalize_distribution(new_weights)
+
+#     return particles, n_weights
+
+
+
+def update_SMC(t, particles, weights, h_true, h_guess, state, projector):
+
+
+    state_sample = evolve_state(h_true, state, t)
+    result = qutip.measurement.measure(state_sample, projector )
+    
+    probs = []
 
     if len(particles.shape) == 1 and len(weights.shape) == 1:
-        probs_0 = [prob_0(evolve_state_fast(h_guess(particle_i), state, t)) 
-                    for particle_i in particles]
+        for particle_i in particles:
+            evolved_state = evolve_state(h_guess(particle_i), state, t)
+            _, evec, prob = qutip.measurement.measurement_statistics(evolved_state, projector)
+            comprueba = np.array([1 if (result[1][:]==eig_i[:]).all() else 0 for eig_i in evec ])
+            prob = np.array(prob)
+            probs.append((prob*comprueba).sum())
+
         
     else:
-        probs_0 = [prob_0(evolve_state_fast(h_guess(particle_i), state, t)) 
-                    for particle_i in particles.T]
-    probs_sample = np.array([p0 if sample == 0 else 1 - p0 for p0 in probs_0])
+        for particle_i in particles.T:
+            evolved_state = evolve_state(h_guess(particle_i), state, t)
+            _, evec, prob = qutip.measurement.measurement_statistics(evolved_state, projector)
+            comprueba = np.array([1 if (result[1][:]==eig_i[:]).all() else 0 for eig_i in evec ])
+            prob = np.array(prob)
+            probs.append((prob*comprueba).sum())
+
     # likelihoods[i_sample, :] = probs_sample
-    new_weights = weights * probs_sample
+    probs = np.array(probs)
+    new_weights = weights * probs
     n_weights = normalize_distribution(new_weights)
 
     return particles, n_weights
 
 
-def adaptive_bayesian_learn(particles, weights, h_true, h_guess, state, steps, tol=1E-5):
+def adaptive_bayesian_learn(particles, weights, h_true, h_guess, state, steps,projector,  tol=1E-5):
     for i_step in range(steps):
         print("Sample no. ", i_step)
         # t = PGH(particles, weights)
@@ -209,12 +279,12 @@ def adaptive_bayesian_learn(particles, weights, h_true, h_guess, state, steps, t
 
 
         particles, weights = update_SMC(
-            t, particles, weights, h_true, h_guess, state=state)
+            t, particles, weights, h_true, h_guess, state, projector)
         print("1/w^2: ", 1/np.sum(weights**2))
 
         if 1/np.sum(weights**2) < no_particles/2:
             print("RESAMPLING")
-            particles, weights = resample(particles, weights, a=0.9)
+            particles, weights = resample(particles, weights, a=0.98)
 
         if np.var(particles) < tol:
             break
@@ -224,23 +294,29 @@ def adaptive_bayesian_learn(particles, weights, h_true, h_guess, state, steps, t
     return estimated_parameter
 
 
-state = np.array([1, 0], dtype=np.complex128)
-state = state/np.linalg.norm(state)
+# state = np.array([1, 0], dtype=np.complex128)
+# state = state/np.linalg.norm(state)
 
+
+D = 1
+
+state = initial_state(dim=D)
+# np.array(state[:, 0], dtype=np.complex128)
 
 
 
 # bounds = np.array([[0, 10],
-                    # [0, 10]])
+#                     [0, 10]])
 
-bounds = np.array([[0, 2]])
-alpha1 = 0.3 # 0.834
-alpha2 = 0.2
-# h = H(free_model_2, [alpha1, alpha2])
+bounds = np.array([[0.01, 5]])
+alpha1 = 1.482 # 0.834
+alpha2 = 3.86
+# h = H(model_two_qubits_free, [alpha1, alpha2])
 h = H(free_model, alpha1)
-D = 1 #dimension
-
-no_particles = 100
+hguess = free_model
+# projector = tensor(sigmax(), sigmax())
+projector = sigmax()
+no_particles = 300
 weights = normalize_distribution(np.ones(no_particles))
 
 
@@ -256,7 +332,7 @@ if D==1:
 steps = 1000
 
 estimated_alpha = adaptive_bayesian_learn(
-    particles=particles, weights=weights,  state=state, steps=steps, h_true=h, h_guess=free_model, tol=1E-9)
+    particles=particles, weights=weights,  state=state, steps=steps, h_true=h, h_guess=hguess, tol=1E-9, projector=projector)
 print("Estimated results: ", estimated_alpha)
 # print(MSE(estimated_alpha, alpha))
 print("end")
