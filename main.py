@@ -47,8 +47,8 @@ def free_model_3(omega):
     return omega[0]*X + omega[1]*Z
 
 def model_two_qubits_free(omega):
-    H = omega[0]*tensor(sigmaz(), identity(2)) 
-    + omega[1]*tensor(identity(2), sigmaz())
+    
+    H = omega[0]*tensor(sigmaz(), identity(2)) + omega[1]*tensor(identity(2), sigmaz())
     return H
 
 
@@ -268,8 +268,8 @@ def adaptive_bayesian_learn(particles, weights, h_true, h_guess, state, steps,pr
     for i_step in range(steps):
         print("Sample no. ", i_step)
         # t = PGH(particles, weights)
-        t = 1/np.sqrt(Cov(particles, weights))
-        # t = 1/np.sqrt(np.trace(Cov(particles, weights)))
+        # t = 1/np.sqrt(Cov(particles, weights))
+        t = 1/np.sqrt(np.trace(Cov(particles, weights)))
         # t = 1/np.sqrt(np.linalg.det(Cov(particles, weights)))
 
 
@@ -280,11 +280,12 @@ def adaptive_bayesian_learn(particles, weights, h_true, h_guess, state, steps,pr
 
         particles, weights = update_SMC(
             t, particles, weights, h_true, h_guess, state, projector)
+        print(weights)
         print("1/w^2: ", 1/np.sum(weights**2))
 
         if 1/np.sum(weights**2) < no_particles/2:
             print("RESAMPLING")
-            particles, weights = resample(particles, weights, a=0.98)
+            particles, weights = resample(particles, weights, a=0.9)
 
         if np.var(particles) < tol:
             break
@@ -298,25 +299,25 @@ def adaptive_bayesian_learn(particles, weights, h_true, h_guess, state, steps,pr
 # state = state/np.linalg.norm(state)
 
 
-D = 1
+D = 2
 
 state = initial_state(dim=D)
 # np.array(state[:, 0], dtype=np.complex128)
 
 
 
-# bounds = np.array([[0, 10],
-#                     [0, 10]])
+bounds = np.array([[0, 3],
+                    [0.1, 3]])
 
-bounds = np.array([[0.01, 5]])
-alpha1 = 1.482 # 0.834
-alpha2 = 3.86
-# h = H(model_two_qubits_free, [alpha1, alpha2])
-h = H(free_model, alpha1)
-hguess = free_model
-# projector = tensor(sigmax(), sigmax())
-projector = sigmax()
-no_particles = 300
+# bounds = np.array([[0.01, 6]])
+alpha1 = 1.8 # 0.834
+alpha2 = 2.32
+h = H(model_two_qubits_free, [alpha1, alpha2])
+# h = H(free_model, alpha1)
+hguess = model_two_qubits_free
+projector = tensor(sigmax(), sigmax())
+# projector = sigmax()
+no_particles = 100
 weights = normalize_distribution(np.ones(no_particles))
 
 
