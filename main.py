@@ -233,14 +233,14 @@ state = state/np.linalg.norm(state)
 # bounds = np.array([[0, 10],
                     # [0, 10]])
 
-bounds = np.array([[0, 5]])
-alpha1 = 0.756 # 0.834
+bounds = np.array([[0, 10]])
+alpha1 = 0.182 # 0.834
 alpha2 = 0.2
 # h = H(free_model_2, [alpha1, alpha2])
 h = H(free_model, alpha1)
 D = 1 #dimension
 
-no_particles = 500
+no_particles = 300
 weights = normalize_distribution(np.ones(no_particles))
 
 
