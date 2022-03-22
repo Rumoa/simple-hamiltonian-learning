@@ -25,11 +25,12 @@ def initial_state(dim=1):
         return tensor([plus for _ in range(dim)])
 
 
-# def evolve_state(H, v, t):
-#     # times = [0.0 , t]
-#     times = np.linspace(0.0, t, 50)
-#     re = qutip.sesolve(H, v, times)
-#     return re.states[-1]
+def evolve_state(H, v, t):
+    times = [0.0 , t]
+    options = qutip.Options(num_cpus=6,  nsteps=times[-1]*1E3, average_expect=False)
+    # times = np.linspace(0.0, t, 50)
+    re = qutip.sesolve(H, v, times, options=options)
+    return re.states[-1]
 
 
 def H(free_model, *omega):
@@ -63,12 +64,12 @@ def mat_exp(A):
 
 
 
-def evolve_state(H, v, t):
-    dims = v.dims
-    vp = np.array(v[:, 0], dtype=np.complex128)
-    Hp = H[:]
-    re = evolve_state_fast(Hp, vp, t)
-    return qutip.Qobj(re, dims=dims)
+# def evolve_state(H, v, t):
+#     dims = v.dims
+#     vp = np.array(v[:, 0], dtype=np.complex128)
+#     Hp = H[:]
+#     re = evolve_state_fast(Hp, vp, t)
+#     return qutip.Qobj(re, dims=dims)
 
 
 # def evolve_state(H, v, t):
