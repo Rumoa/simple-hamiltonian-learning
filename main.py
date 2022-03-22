@@ -172,19 +172,20 @@ def Cov(particles, distribution):
 
 
 
-
 def resample(particles, distribution, a):
     prob = normalize_distribution(distribution)
-    mu = Mean(particles, prob)
     h = np.sqrt(1-a**2)
-    Sigma = h**2 * Cov(particles, prob)
+    
     new_weights = []
     new_particles = []
     if len(particles.shape) == 1 and len(distribution.shape) == 1:
+        mu = Mean(particles, prob)
+
         for _ in range(len(particles)):
             part_candidate = np.random.choice(
-                particles, size=1, p=prob, replace=True)
+                particles, size=1, p=prob, replace=False)
             mu_i = a*part_candidate + (1-a)*mu
+            Sigma = h**2 * np.sqrt(Cov(particles, prob))
             part_prime = np.random.normal(mu_i, Sigma)
             new_particles.append(part_prime[0])
             new_weights.append(1/len(particles))
@@ -194,15 +195,18 @@ def resample(particles, distribution, a):
         new_particles = np.zeros(particles.shape)
         new_weights = np.zeros(distribution.shape)
         M = particles.shape[1] #number of particles
-        for j in range(particles.shape[1]):
-            loc_candidate = np.random.choice(
-                   M , size=1, p=prob, replace=True)
-            part_candidate = particles[:, loc_candidate]
-            # print(part_candidate)
-            mu_i = a*part_candidate + (1-a)*mu.reshape(-1, 1)
-            part_prime = np.random.multivariate_normal(mu_i[:, 0], Sigma)
-            new_particles[:, j] = part_prime
-            new_weights[j] = 1/M
+        for i in range(particles.shape[0]):
+            for j in range(particles.shape[1]):
+                loc_candidate = np.random.choice(
+                    M , size=1, p=prob, replace=False)
+                part_candidate = particles[i, loc_candidate]
+                # print(part_candidate)
+                mu=Mean(particles[i, :], prob)
+                Sigma = h**2 * np.sqrt(Cov(particles[i, :], prob))
+                mu_i = a*part_candidate + (1-a)*mu
+                part_prime = np.random.normal(mu_i, Sigma)
+                new_particles[i, j] = part_prime
+                new_weights[j] = 1/M
    
         return (new_particles, new_weights)
 
@@ -250,6 +254,7 @@ def update_SMC(t, particles, weights, h_true, h_guess, state, projector):
         
     else:
         for particle_i in particles.T:
+            # print(particle_i)
             evolved_state = evolve_state(h_guess(particle_i), state, t)
             _, evec, prob = qutip.measurement.measurement_statistics(evolved_state, projector)
             comprueba = np.array([1 if (result[1][:]==eig_i[:]).all() else 0 for eig_i in evec ])
@@ -267,9 +272,9 @@ def update_SMC(t, particles, weights, h_true, h_guess, state, projector):
 def adaptive_bayesian_learn(particles, weights, h_true, h_guess, state, steps,projector,  tol=1E-5):
     for i_step in range(steps):
         print("Sample no. ", i_step)
-        # t = PGH(particles, weights)
+        t = PGH(particles, weights)
         # t = 1/np.sqrt(Cov(particles, weights))
-        t = 1/np.sqrt(np.trace(Cov(particles, weights)))
+        # t = 1/np.sqrt(np.trace(Cov(particles, weights)))
         # t = 1/np.sqrt(np.linalg.det(Cov(particles, weights)))
 
 
@@ -285,7 +290,7 @@ def adaptive_bayesian_learn(particles, weights, h_true, h_guess, state, steps,pr
 
         if 1/np.sum(weights**2) < no_particles/2:
             print("RESAMPLING")
-            particles, weights = resample(particles, weights, a=0.9)
+            particles, weights = resample(particles, weights, a=0.98)
 
         if np.var(particles) < tol:
             break
@@ -306,12 +311,12 @@ state = initial_state(dim=D)
 
 
 
-bounds = np.array([[0, 3],
-                    [0.1, 3]])
+bounds = np.array([[0.1, 5],
+                    [0.1, 5]])
 
 # bounds = np.array([[0.01, 6]])
-alpha1 = 1.8 # 0.834
-alpha2 = 2.32
+alpha1 = 0.4 # 0.834
+alpha2 = 2.8
 h = H(model_two_qubits_free, [alpha1, alpha2])
 # h = H(free_model, alpha1)
 hguess = model_two_qubits_free
