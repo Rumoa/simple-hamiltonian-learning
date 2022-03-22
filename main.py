@@ -53,6 +53,11 @@ def model_two_qubits_free(omega):
     return H
 
 
+def model_two_qubits_interact(omega):
+    
+    H = omega[0]*tensor(sigmaz(), identity(2)) + omega[1]*tensor(identity(2), sigmaz()) + omega[3]*tensor(sigmaz(), sigmaz())
+    return H
+
 @jit(nopython=True)
 def mat_exp(A):
     d, Y = np.linalg.eig(A)
@@ -213,8 +218,11 @@ def resample(particles, distribution, a):
 
 
 
-def MSE(x, xtrue):
-    return np.power(x - xtrue, 2)
+def Mse(par, true_par):
+    suma = 0
+    for i in range(len(par)):
+        suma = suma + (par[i] - true_par[i])**2
+    return suma   
 
 
 # def update_SMC(t, particles, weights, h_true, h_guess, state):
@@ -270,7 +278,7 @@ def update_SMC(t, particles, weights, h_true, h_guess, state, projector):
     return particles, n_weights
 
 
-def adaptive_bayesian_learn(particles, weights, h_true, h_guess, state, steps,projector,  tol=1E-5):
+def adaptive_bayesian_learn(particles, weights, h_true, h_guess, true_parameters, state, steps,projector,  tol=1E-5):
     for i_step in range(steps):
         print("Sample no. ", i_step)
         t = PGH(particles, weights)
@@ -279,23 +287,26 @@ def adaptive_bayesian_learn(particles, weights, h_true, h_guess, state, steps,pr
         # t = 1/np.sqrt(np.linalg.det(Cov(particles, weights)))
 
 
-        print("time:", t)
-        print("Mean", Mean(particles, normalize_distribution(weights)))
-        print("Cov", Cov(particles, normalize_distribution(weights)) ) 
+        # print("time:", t)
+        # print("Mean", Mean(particles, normalize_distribution(weights)))
+        # print("Cov", Cov(particles, normalize_distribution(weights)) ) 
 
 
         particles, weights = update_SMC(
             t, particles, weights, h_true, h_guess, state, projector)
-        print(weights)
-        print("1/w^2: ", 1/np.sum(weights**2))
+        # print(weights)
+        # print("1/w^2: ", 1/np.sum(weights**2))
 
-        if 1/np.sum(weights**2) < no_particles/2:
+        if 1/np.sum(weights**2) < no_particles*(1/2):
             print("RESAMPLING")
             particles, weights = resample(particles, weights, a=0.98)
+        
+        if i_step%5==0:
+            estimated_parameter = Mean(particles, weights)
+            print("MSE: ", Mse(estimated_parameter,true_parameters))
 
-        if np.var(particles) < tol:
+        if Mse(estimated_parameter,true_parameters) < tol:
             break
-
     # estimated_parameter = np.sum(np.dot(weights, particles))
     estimated_parameter = Mean(particles, weights)
     return estimated_parameter
@@ -318,6 +329,10 @@ bounds = np.array([[0.1, 5],
 # bounds = np.array([[0.01, 6]])
 alpha1 = 0.4 # 0.834
 alpha2 = 2.8
+
+true_parameters = np.array([alpha1, alpha2])
+
+
 h = H(model_two_qubits_free, [alpha1, alpha2])
 # h = H(free_model, alpha1)
 hguess = model_two_qubits_free
@@ -339,7 +354,7 @@ if D==1:
 steps = 1000
 
 estimated_alpha = adaptive_bayesian_learn(
-    particles=particles, weights=weights,  state=state, steps=steps, h_true=h, h_guess=hguess, tol=1E-9, projector=projector)
+    particles=particles, weights=weights, true_parameters=true_parameters, state=state, steps=steps, h_true=h, h_guess=hguess, tol=1E-9, projector=projector)
 print("Estimated results: ", estimated_alpha)
 # print(MSE(estimated_alpha, alpha))
 print("end")
